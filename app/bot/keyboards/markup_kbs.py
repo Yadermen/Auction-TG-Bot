@@ -25,7 +25,9 @@ class MainKeyboard:
     }
 
     __admin_kb_text_dict_ru = {
-        'create_lot':'Создать лот'
+        'create_lot':'Создать лот',
+        'banned_list':'Список забаненных юзеров',
+        'user_list':'Список юзеров'
     }
     
     @staticmethod
@@ -41,6 +43,8 @@ class MainKeyboard:
     def get_admin_kb_texts(key = None) -> Dict[str, str]:
         """
         'create_lot'
+        'banned_list'
+        'user_list'
         """
         if key is not None:
             return MainKeyboard.__admin_kb_text_dict_ru.get(key)

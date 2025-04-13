@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Float
 )
 from typing import Optional
 from app.db.database import Base
@@ -27,9 +28,8 @@ class User(Base):
         banned = "banned"
 
     __tablename__ = "users"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
 
-    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False,primary_key=True)
     username: Mapped[Optional[str]] = mapped_column(String, default=None)
     first_name: Mapped[Optional[str]] = mapped_column(String, default=None)
     last_name: Mapped[Optional[str]] = mapped_column(String, default=None)
@@ -40,7 +40,7 @@ class User(Base):
 
 class Lot(Base):
     __tablename__ = "lots"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
 
     lot_info: Mapped[str] = mapped_column(String)
     price: Mapped[float] = mapped_column(BigInteger)
@@ -50,4 +50,4 @@ class Lot(Base):
     photos_link: Mapped[str] = mapped_column(String)
     autoteka_link: Mapped[str] = mapped_column(String)
     diagnostik_link: Mapped[str] = mapped_column(String)
-    curren_rate:Mapped[float] = mapped_column(BigInteger)
+    curren_rate:Mapped[Optional[float]] = mapped_column(Float, nullable=True)

@@ -1,4 +1,4 @@
-from typing import Callable, Awaitable, Dict, Any
+from typing import Callable, Awaitable, Dict, Any, List
 
 from aiogram import BaseMiddleware
 from aiogram.types import Message
@@ -14,7 +14,10 @@ class CheckIsAdmin(BaseMiddleware):
         data: Dict[str, Any],
     ) -> Any:
         async with async_session_maker() as session:
-            if event.from_user.id in await UserDAO.find_all_admins(session):
+            admins = await UserDAO.find_all_admins(session)
+            admin_ids: List[int] = [admin.telegram_id for admin in admins]
+
+            if event.from_user.id in admin_ids:
                 return await handler(event, data) 
             else:
                 await event.answer(

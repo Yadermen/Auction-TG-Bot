@@ -6,7 +6,7 @@ from app.db.models import User
 from app.db.dao import UserDAO
 from aiogram.filters import CommandStart
 from app.db.database import async_session_maker
-
+from app.db.schemas import TelegramIDModel
 
 
 class VerificationMiddleware(BaseMiddleware):
@@ -32,7 +32,7 @@ class VerificationMiddleware(BaseMiddleware):
         # Проверяем статус пользователя
         logger.info(user_id)
         async with async_session_maker() as session:
-            user = await UserDAO.find_by_telegram_id(session,int(user_id))
+            user = await UserDAO.find_one_or_none(session,TelegramIDModel(telegram_id=int(user_id)))
         logger.info(user)
         # Если пользователя нет в базе — запрещаем
         if not user:
@@ -40,10 +40,10 @@ class VerificationMiddleware(BaseMiddleware):
             return
 
         # Если пользователь не верифицирован или заблокирован — запрещаем
-        if user.verification_code == User.VerificationCode.NotVerified:
+        if user.verification_status == User.VerifocationStatus.non_verifed:
             await event.answer("🚫 Ваш аккаунт не верифицирован. Ожидайте одобрения администратора.")
             return
-        if user.verification_code == User.VerificationCode.Blocked:
+        if user.verification_status == User.VerifocationStatus.banned:
             async with async_session_maker() as session:
                 admins:list[User] = await UserDAO.get_admins(session)
             for admin in admins:

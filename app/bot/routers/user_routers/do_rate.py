@@ -51,7 +51,7 @@ async def process_lot_num(message:Message, state:FSMContext, user_info:User):
         logger.info(f'Во время поиска лота у юзера{message.from_user.id} произошла ошибка - {str(e)}')
         await message.answer('Произошла не предвиденная ошибка',reply_markup=MainKeyboard.build_main_kb(user_info.role))
 
-@do_rate_router.message(F.text.regexp(r'^\d+$'), StateFilter(RateLot.lot_number),GetUserInfoFilter())
+@do_rate_router.message(F.text.regexp(r'^\d+$'), StateFilter(RateLot.rate),GetUserInfoFilter())
 async def process_rate(message:Message, state:FSMContext, user_info:User):
     try:
         data = await state.get_data()
@@ -63,10 +63,12 @@ async def process_rate(message:Message, state:FSMContext, user_info:User):
         async with async_session_maker() as session:
             lot = await LotDAO.find_one_or_none_by_id(data.get('lot_number'),session)
             lot.curren_rate = int(message.text)
+        async with async_session_maker() as session:
             await LotDAO.update(session,
                                 filters=LotFilterModel(id=int(data.get('lot_number'))),
                                 values=LotFilterModel.model_validate(lot.to_dict()))
-        msg = f'Пользователь {user_info.user_enter_fio}(phone_num:{user_info.phone_number};tg_id:`{user_info.telegram_id}`) сделал ставку в размере {message.text} на лот под номером:{lot.id}'
+        await message.answer('Спасибо за вашу ставку!')
+        msg = f'Пользователь {user_info.user_enter_fio}(phone_num:{user_info.phone_number}; tg_id:`{user_info.telegram_id}`)\nсделал ставку в размере {message.text} на лот под номером:{lot.id}'
         await bot.send_message(settings.ADMIN_GROUP_ID, msg, parse_mode='markdown')
     except Exception as e:
         logger.info(f'Во время ввода ставки у юзера {message.from_user.id} произошла ошибка - {str(e)}')

@@ -45,6 +45,6 @@ def setup_logger(app_name: str):
         rotation=settings.LOG_ROTATION
     )
 
-bot = Bot(token=settings.BOT_TOKEN.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+bot = Bot(token=settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
 admins = settings.ADMIN_IDS

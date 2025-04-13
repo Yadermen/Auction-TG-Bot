@@ -61,14 +61,13 @@ TELEGRAM_ID_PATTERN = r'^[1-9]\d{6,9}$'
 def is_valid_telegram_id(telegram_id: str) -> bool:
     return bool(re.match(TELEGRAM_ID_PATTERN, str(telegram_id)))
 
-async def generate_lot_confirmation_text(state: FSMContext) -> str:
+async def generate_lot_confirmation_text(data) -> str:
     """
     Формирует текст с информацией о лоте для подтверждения.
     """
-    data = await state.get_data()
     confirmation_text = (
         f"Пожалуйста, подтвердите создание лота:\n\n"
-        f"📋 Информация о лоте: {data.get('lot_info', 'Не указано')}\n"
+        f"📋 Информация о лоте:\n{data.get('lot_info', 'Не указано')}\n"
         f"💰 Цена: {data.get('price', 'Не указано')} руб.\n"
         f"📈 Шаг ставки: {data.get('rate_step', 'Не указано')} руб.\n"
         f"⏳ Время: {data.get('time_in_minutes', 'Не указано')} минут\n"
@@ -90,3 +89,12 @@ def minutes_to_hours_and_minutes(total_minutes: int) -> str:
     minutes = total_minutes % 60
     result = f"{hours} часов {minutes} минут" if hours > 0 else f"{minutes} минут"
     return result
+
+
+def escape_markdown(text: str) -> str:
+    """
+    Экранирует специальные символы Markdown.
+    """
+    text = str(text)
+    escape_chars = r"\_*[]()~`>#+-=|{}.!"
+    return ''.join(f"\\{char}" if char in escape_chars else char for char in text)

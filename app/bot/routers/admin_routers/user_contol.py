@@ -78,7 +78,7 @@ async def cmd_unban_user(message: Message, command: CommandObject, session, **kw
         await message.answer(f"Произошла ошибка при выполнении комманды /ban - {e}")
 
 
-@user_control_router.message(F.text == "Список забаненных юзеров")
+@user_control_router.message(F.text == MainKeyboard.get_admin_kb_texts().get('banned_list'))
 async def get_banned_user_list(message: Message):
     try:
         async with async_session_maker as session:
@@ -98,7 +98,7 @@ async def get_banned_user_list(message: Message):
     except Exception as e:
         logger.error(f"Ошибка при получении списка юзеров - {e}")
 
-@user_control_router.message(F.text == "Список пользователей")
+@user_control_router.message(F.text ==  MainKeyboard.get_admin_kb_texts().get('user_list'))
 async def get_banned_user_list(message: Message):
     try:
         async with async_session_maker() as session:
@@ -125,10 +125,11 @@ async def admin_callback(
     user_id = callback_data.user_id
     logger.debug(f"Callback data: {callback_data}")
     try:
-        async with async_session_maker() as session:
-            if callback_data.action == "verified_user_yes":
+        if callback_data.action == "verified_user_yes":
+            async with async_session_maker() as session:
                 user:User = await UserDAO.find_one_or_none(session, TelegramIDModel(telegram_id=user_id))
                 user.verification_status = User.VerifocationStatus.verifed
+            async with async_session_maker() as session:
                 await UserDAO.update(session=session,filters=TelegramIDModel(telegram_id=user_id),values=UserFilterModel.model_validate(user.to_dict()))
                 await query.answer("Пользователь верифицирован")
                 await query.message.delete()
@@ -138,10 +139,11 @@ async def admin_callback(
                     reply_markup=MainKeyboard.build_main_kb(user.role),
                 )
                 return
-            if callback_data.action == "verified_user_no":
-
+        if callback_data.action == "verified_user_no":
+            async with async_session_maker() as session:
                 user:User = await UserDAO.find_one_or_none(session, TelegramIDModel(telegram_id=user_id))
                 user.verification_status = User.VerifocationStatus.verifed
+            async with async_session_maker() as session:
                 await UserDAO.update(session=session,filters=TelegramIDModel(telegram_id=user_id),values=UserFilterModel.model_validate(user.to_dict()))
                 await query.answer("Пользователь заблокирован")
                 await query.message.delete()

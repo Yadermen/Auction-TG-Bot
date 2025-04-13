@@ -17,7 +17,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from app.db.models import User
-from app.db.schemas import LotCreateModel  
+from app.db.schemas import LotCreateModel, LotFilterModel
 
 create_lot_router = Router()
 
@@ -33,7 +33,7 @@ class CreateLot(StatesGroup):
     confirm = State()
 
 
-@create_lot_router.message(F.text == MainKeyboard.get_admin_kb_texts('create_lot').get())
+@create_lot_router.message(F.text == MainKeyboard.get_admin_kb_texts().get('create_lot'))
 async def start_create_lot(message: Message, state: FSMContext):
     await message.answer("Введите информацию о лоте:",reply_markup=del_kbd)
     await state.set_state(CreateLot.lot_info)
@@ -41,7 +41,7 @@ async def start_create_lot(message: Message, state: FSMContext):
 
 @create_lot_router.message(F.text, StateFilter(CreateLot.lot_info))
 async def set_lot_info(message: Message, state: FSMContext):
-    await state.update_data(lot_info=message.md_text)
+    await state.update_data(lot_info=message.html_text)
     await message.answer("Введите цену лота:")
     await state.set_state(CreateLot.price)
 
@@ -104,26 +104,50 @@ async def set_diagnostik_link(message: Message, state: FSMContext):
     await state.update_data(diagnostik_link=message.text)
     data = await state.get_data()
     msg = await generate_lot_confirmation_text(data)
-    await message.answer_photo(photo=data.get('main_photo'), caption=msg, reply_markup=lot_confirm())
+    await message.answer_photo(photo=data.get('main_photo'), caption=msg, reply_markup=lot_confirm(),parse_mode='html')
 
 
 
-@create_lot_router.callback_query(LotConfirmCallback.filter)
+@create_lot_router.callback_query(LotConfirmCallback.filter())
 async def process_confirm_callback(query: CallbackQuery, callback_data: LotConfirmCallback,state:FSMContext):
     match callback_data.action:
         case 'yes':
             try:
                 data = await state.get_data()
                 async with async_session_maker() as session:
-                    lot_data = LotCreateModel(**data)
-                    new_lot = await LotDAO.add(session=session, values=lot_data)
-                    data.update({'lot_id':new_lot.id})
-                    message = bot.send_photo(chat_id=settings.USER_GROUP_ID,
+                    lot_data = LotCreateModel(
+                        lot_info=data.get('lot_info'),
+                        price=data.get('price'),
+                        rate_step=data.get('rate_step'),
+                        time_in_minutes=data.get('time_in_minutes'),
+                        main_photo=data.get('main_photo'),
+                        photos_link=data.get('photos_link'),
+                        autoteka_link=data.get('autoteka_link'),
+                        diagnostik_link=data.get('diagnostik_link'),
+                    )
+                    await LotDAO.add(session=session, values=lot_data)
+
+                async with async_session_maker() as session:
+                    lot = await LotDAO.find_one_or_none(session,filters=LotFilterModel(
+                        lot_info=data.get('lot_info'),
+                        price=data.get('price'),
+                        rate_step=data.get('rate_step'),
+                        time_in_minutes=data.get('time_in_minutes'),
+                        main_photo=data.get('main_photo'),
+                        photos_link=data.get('photos_link'),
+                        autoteka_link=data.get('autoteka_link'),
+                        diagnostik_link=data.get('diagnostik_link')))
+                    lot_id = lot.id
+                data.update({'lot_id':lot_id})
+                
+                message = await bot.send_photo(chat_id=settings.USER_GROUP_ID,
                                              photo=data.get('main_photo'),
-                                             caption=f'Лот: {new_lot.id}\n'+data.get('lot_info'), 
-                                             parse_mode='markdown',
+                                             caption=f'Лот: {lot_id}\n'+data.get('lot_info'), 
+                                             parse_mode='html',
                                              reply_markup=lot_kb(data))
-                    asyncio.create_task(process_auction(message, data))
+                asyncio.create_task(process_auction(message, data))
+                await query.message.delete()
+                await query.message.answer("Лот создан!",reply_markup=MainKeyboard.build_main_kb(User.Role.admin))
             except Exception as e:
                 logger.error(f"Ошибка при создании лота: {e}")
                 await query.message.answer("Произошла ошибка при создании лота. Попробуйте снова позже.")
