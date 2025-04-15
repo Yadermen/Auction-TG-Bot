@@ -47,6 +47,22 @@ async def cmd_start(message: Message,state:FSMContext):
             )
 
             if user_info:
+                if user_info.telegram_id in admins:
+                    values = UserModel(
+                        telegram_id=user_id,
+                        username=message.from_user.username,
+                        first_name=message.from_user.first_name,
+                        last_name=message.from_user.last_name,
+                        phone_number=user_info.phone_number,
+                        user_enter_fio=user_info.user_enter_fio,
+                        verification_status=User.VerifocationStatus.verifed,
+                        role=User.Role.admin,
+                    )
+                    await UserDAO.update(session,filters=TelegramIDModel(telegram_id=user_id),values=values)
+                    await message.answer(
+                        "Привет администрации", reply_markup=MainKeyboard.build_main_kb(user_role=values.role)
+                    )
+                    return
                 match user_info.verification_status:
                     case User.VerifocationStatus.non_verifed:
                         msg = "Ваш аккаунт еще не проверен. Ожидайте, пока администратор проверит ваш аккаунт."
