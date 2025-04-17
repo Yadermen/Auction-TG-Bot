@@ -58,6 +58,6 @@ def lot_kb(data:dict) -> InlineKeyboardMarkup:
         kb.button(text=f'Текущая ставка: {data.get('current_rate')}', callback_data='non_clickable')
     else:
         kb.button(text='Ставок пока нет', callback_data='non_clickable')
-    kb.button(text='Сделать ставку',url = f'https://t.me/{data.get("bot_username")}')
+    kb.button(text=f'Сделать ставку: {data.get('min_rate')} ₽',url = f'https://t.me/{data.get("bot_username")}')
     kb.adjust(2,1,1,1,1)
     return kb.as_markup()

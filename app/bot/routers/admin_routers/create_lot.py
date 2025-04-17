@@ -17,7 +17,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from app.db.models import User
-from app.db.schemas import LotCreateModel, LotFilterModel, UserFilterModel
+from app.db.schemas import LotCreateModel, LotFilterModel, TelegramIDModel
 
 create_lot_router = Router()
 
@@ -141,6 +141,7 @@ async def process_confirm_callback(query: CallbackQuery, callback_data: LotConfi
                 data.update({'lot_id':lot_id})
                 me = await bot.get_me()
                 data.update({'bot_username':me.username})
+                data.update({'min_rate':lot.price})
                 message = await bot.send_photo(chat_id=settings.USER_GROUP_ID,
                                              photo=data.get('main_photo'),
                                              caption=f'Лот: {lot_id}\n'+data.get('lot_info'), 
@@ -173,25 +174,30 @@ async def process_auction(message: Message, data: dict):
             auk_message = await bot.send_message(chat_id=settings.USER_GROUP_ID,text='**ВНИМАНИЕ ДО КОНЦА АУКЦИОНА ОСТАЛОСЬ 5 МИНУТ**',parse_mode='markdown')
         if remaining_time <= 0:
             await bot.delete_message(chat_id=settings.USER_GROUP_ID,message_id=auk_message.message_id)
-            async with async_session_maker() as session:
-                user_who_won = await UserDAO.find_one_or_none(session,filters=UserFilterModel(telegram_id=lot.current_rate_user_id))
-            if user_who_won:
-                user_link = f"@{user_who_won.username}" if user_who_won.username else f"<a href='https://t.me/{user_who_won.telegram_id}'>пользователь</a>"
-                await bot.send_message(
-                    chat_id=settings.ADMIN_GROUP_ID,
-                    text=(
-                        f"**АУКЦИОН №{lot.id} ЗАВЕРШЕН**\n"
-                        f"Победитель: {user_who_won.user_enter_fio}\n"
-                        f"Телефон: {user_who_won.phone_number}\n"
-                        f"Telegram: {user_link}"
-                    ),
-                    parse_mode='html'
-                )
+            if lot.current_rate_user_id:
+                async with async_session_maker() as session:
+                    user_who_won = await UserDAO.find_one_or_none(session,filters=TelegramIDModel(telegram_id=lot.current_rate_user_id))
+                    user_link = f"@{user_who_won.username}" if user_who_won.username else f"<a href='https://t.me/{user_who_won.telegram_id}'>пользователь</a>"
+                    await bot.send_message(
+                        chat_id=settings.ADMIN_GROUP_ID,
+                        text=(
+                            f"**АУКЦИОН №{lot.id} ЗАВЕРШЕН**\n"
+                            f"Победитель: {user_who_won.user_enter_fio}\n"
+                            f"Телефон: {user_who_won.phone_number}\n"
+                            f"Telegram: {user_link}"
+                        ),
+                        parse_mode='html'
+                    )
             await message.edit_reply_markup(reply_markup=None)
             await message.edit_text(message.md_text + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
             break
 
         data.update({'time_in_minutes':remaining_time})
+        if lot.curren_rate is not None:
+            min_rate = lot.curren_rate + lot.rate_step
+        else:
+            min_rate = lot.price
+        data.update({'min_rate':min_rate})
         try:
             message = await message.edit_reply_markup(reply_markup=lot_kb(data))
         except Exception as e:
