@@ -183,13 +183,15 @@ async def process_auction(message: Message, data: dict):
                         text=(
                             f"**АУКЦИОН №{lot.id} ЗАВЕРШЕН**\n"
                             f"Победитель: {user_who_won.user_enter_fio}\n"
+                            f"Лот: {lot.id}\n"
+                            f"Ставка: {lot.curren_rate}\n"
                             f"Телефон: {user_who_won.phone_number}\n"
                             f"Telegram: {user_link}"
                         ),
                         parse_mode='html'
                     )
             await message.edit_reply_markup(reply_markup=None)
-            await message.edit_text(message.md_text + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
+            await message.edit_text(message.caption + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
             break
 
         data.update({'time_in_minutes':remaining_time})
