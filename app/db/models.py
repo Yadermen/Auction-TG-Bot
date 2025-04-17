@@ -37,6 +37,8 @@ class User(Base):
     phone_number: Mapped[Optional[str]] = mapped_column(String, default=None)
     role: Mapped[Role] = mapped_column(Enum(Role), default=Role.user)
     verification_status: Mapped[VerifocationStatus] = mapped_column(Enum(VerifocationStatus),default=VerifocationStatus.non_verifed)
+    
+    lots_rate = relationship("Lot", back_populates="user_rate")
 
 class Lot(Base):
     __tablename__ = "lots"
@@ -51,3 +53,7 @@ class Lot(Base):
     autoteka_link: Mapped[str] = mapped_column(String)
     diagnostik_link: Mapped[str] = mapped_column(String)
     curren_rate:Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    current_rate_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.telegram_id"), nullable=True)
+
+    user_rate = relationship("User", back_populates="lots_rate")
+    

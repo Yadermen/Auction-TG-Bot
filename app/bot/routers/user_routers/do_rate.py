@@ -46,7 +46,9 @@ async def process_lot_num(message:Message, state:FSMContext, user_info:User):
             await message.answer(f'Теперь введите вашу ставку(Минимальная ставка: **{min_rate}**)\nВводите только числа без разделения пробелами, запятыми и тд(Например 250000)', parse_mode='markdown')
             await state.set_state(RateLot.rate)
             await state.update_data({'lot_number':lot.id})
-            await state.update_data({'min_rate':min_rate})
+            await state.update_data({'user_fio':user_info.user_enter_fio})
+            await state.update_data({'user_phone':user_info.phone_number})
+            await state.update_data({'user_tg_id':user_info.telegram_id})
     except Exception as e:
         logger.info(f'Во время поиска лота у юзера{message.from_user.id} произошла ошибка - {str(e)}')
         await message.answer('Произошла не предвиденная ошибка',reply_markup=MainKeyboard.build_main_kb(user_info.role))
@@ -55,7 +57,12 @@ async def process_lot_num(message:Message, state:FSMContext, user_info:User):
 async def process_rate(message:Message, state:FSMContext, user_info:User):
     try:
         data = await state.get_data()
-        min_rate = data.get('min_rate')
+        async with async_session_maker() as session:
+            lot = await LotDAO.find_one_or_none_by_id(data.get('lot_number'), session)
+            if lot.curren_rate is not None:
+                min_rate = lot.curren_rate + lot.rate_step
+            else:
+                min_rate = lot.price
         if int(message.text) < int(min_rate):
             await message.answer('Ваша ставка меньше минимальной',reply_markup=MainKeyboard.build_main_kb(user_info.role))
             await state.clear()
@@ -63,6 +70,7 @@ async def process_rate(message:Message, state:FSMContext, user_info:User):
         async with async_session_maker() as session:
             lot = await LotDAO.find_one_or_none_by_id(data.get('lot_number'),session)
             lot.curren_rate = int(message.text)
+            lot.current_rate_user_id = user_info.telegram_id
         async with async_session_maker() as session:
             await LotDAO.update(session,
                                 filters=LotFilterModel(id=int(data.get('lot_number'))),

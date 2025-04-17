@@ -10,14 +10,14 @@ from aiogram.dispatcher.router import Router
 from app.bot.keyboards.inlane_kb import lot_confirm,LotConfirmCallback, lot_kb
 from app.bot.keyboards.markup_kbs import MainKeyboard,del_kbd
 from app.bot.utils.func import generate_lot_confirmation_text
-from app.db.dao import LotDAO
+from app.db.dao import LotDAO,UserDAO
 from app.db.database import async_session_maker
 from app.config import bot,settings
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from app.db.models import User
-from app.db.schemas import LotCreateModel, LotFilterModel
+from app.db.schemas import LotCreateModel, LotFilterModel, UserFilterModel
 
 create_lot_router = Router()
 
@@ -170,15 +170,30 @@ async def process_auction(message: Message, data: dict):
             data.update({'current_rate':lot.curren_rate})
         remaining_time = remaining_time - 1
         if remaining_time == 5:
-            await bot.send_message(chat_id=settings.USER_GROUP_ID,text='**ВНИМАНИЕ ДО КОНЦА АУКЦИОНА ОСТАЛОСЬ 5 МИНУТ**',parse_mode='markdown')
+            auk_message = await bot.send_message(chat_id=settings.USER_GROUP_ID,text='**ВНИМАНИЕ ДО КОНЦА АУКЦИОНА ОСТАЛОСЬ 5 МИНУТ**',parse_mode='markdown')
         if remaining_time <= 0:
+            await bot.delete_message(chat_id=settings.USER_GROUP_ID,message_id=auk_message.message_id)
+            async with async_session_maker() as session:
+                user_who_won = await UserDAO.find_one_or_none(session,filters=UserFilterModel(telegram_id=lot.current_rate_user_id))
+            if user_who_won:
+                user_link = f"@{user_who_won.username}" if user_who_won.username else f"<a href='https://t.me/{user_who_won.telegram_id}'>пользователь</a>"
+                await bot.send_message(
+                    chat_id=settings.ADMIN_GROUP_ID,
+                    text=(
+                        f"**АУКЦИОН №{lot.id} ЗАВЕРШЕН**\n"
+                        f"Победитель: {user_who_won.user_enter_fio}\n"
+                        f"Телефон: {user_who_won.phone_number}\n"
+                        f"Telegram: {user_link}"
+                    ),
+                    parse_mode='html'
+                )
             await message.edit_reply_markup(reply_markup=None)
-            await message.edit_text(message.text + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
+            await message.edit_text(message.md_text + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
             break
 
         data.update({'time_in_minutes':remaining_time})
         try:
-            await message.edit_reply_markup(reply_markup=lot_kb(data))
+            message = await message.edit_reply_markup(reply_markup=lot_kb(data))
         except Exception as e:
             logger.error(f"Ошибка при обновлении клавиатуры: {e}")
             break

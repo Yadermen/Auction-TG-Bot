@@ -40,10 +40,14 @@ class LotCreateModel(BaseModel):
     photos_link: str
     autoteka_link: str
     diagnostik_link: str
-    curren_rate:Optional[float] = None
+    curren_rate: Optional[float] = None
+    current_rate_user_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 class LotFilterModel(BaseModel):
-    id:Optional[int] = None
+    id: Optional[int] = None
     lot_info: Optional[str] = None
     price: Optional[float] = None
     rate_step: Optional[float] = None
@@ -52,4 +56,8 @@ class LotFilterModel(BaseModel):
     photos_link: Optional[str] = None
     autoteka_link: Optional[str] = None
     diagnostik_link: Optional[str] = None
-    curren_rate:Optional[float] = None
+    curren_rate: Optional[float] = None
+    current_rate_user_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
