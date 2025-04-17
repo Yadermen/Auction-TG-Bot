@@ -191,7 +191,7 @@ async def process_auction(message: Message, data: dict):
                         parse_mode='html'
                     )
             await message.edit_reply_markup(reply_markup=None)
-            await message.edit_text(message.caption + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
+            await message.edit_caption(message.caption + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
             break
 
         data.update({'time_in_minutes':remaining_time})
