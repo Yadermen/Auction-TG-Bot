@@ -75,7 +75,7 @@ async def process_rate(message:Message, state:FSMContext, user_info:User):
             await LotDAO.update(session,
                                 filters=LotFilterModel(id=int(data.get('lot_number'))),
                                 values=LotFilterModel.model_validate(lot.to_dict()))
-        await message.answer('Спасибо за вашу ставку!')
+        await message.answer('Спасибо за вашу ставку!',reply_markup=MainKeyboard.build_main_kb(user_info.role))
         msg = f'Пользователь {user_info.user_enter_fio}(phone_num:{user_info.phone_number}; tg_id:`{user_info.telegram_id}`)\nсделал ставку в размере {message.text} на лот под номером:{lot.id}'
         await bot.send_message(settings.ADMIN_GROUP_ID, msg, parse_mode='markdown')
     except Exception as e:
