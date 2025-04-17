@@ -139,7 +139,8 @@ async def process_confirm_callback(query: CallbackQuery, callback_data: LotConfi
                         diagnostik_link=data.get('diagnostik_link')))
                     lot_id = lot.id
                 data.update({'lot_id':lot_id})
-                
+                me = await bot.get_me()
+                data.update({'bot_username':me.username})
                 message = await bot.send_photo(chat_id=settings.USER_GROUP_ID,
                                              photo=data.get('main_photo'),
                                              caption=f'Лот: {lot_id}\n'+data.get('lot_info'), 

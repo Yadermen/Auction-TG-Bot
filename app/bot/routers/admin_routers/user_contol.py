@@ -81,7 +81,7 @@ async def cmd_unban_user(message: Message, command: CommandObject, session, **kw
 @user_control_router.message(F.text == MainKeyboard.get_admin_kb_texts().get('banned_list'))
 async def get_banned_user_list(message: Message):
     try:
-        async with async_session_maker as session:
+        async with async_session_maker() as session:
             banned_users: list[User] = await UserDAO.find_all(session,UserFilterModel(verification_status=User.VerifocationStatus.banned))
 
         if not banned_users:

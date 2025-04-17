@@ -3,7 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 
 from app.bot.utils.func import minutes_to_hours_and_minutes
-
+from app.config import bot
 class VerifedCallback(CallbackData, prefix="ver_admin"):
     action: str
     user_id: int = None
@@ -58,6 +58,6 @@ def lot_kb(data:dict) -> InlineKeyboardMarkup:
         kb.button(text=f'Текущая ставка: {data.get('current_rate')}', callback_data='non_clickable')
     else:
         kb.button(text='Ставок пока нет', callback_data='non_clickable')
-    kb.button(text='Сделать ставку',url = data.get('autoteka_link'))
+    kb.button(text='Сделать ставку',url = f'https://t.me/{data.get("bot_username")}')
     kb.adjust(2,1,1,1,1)
     return kb.as_markup()
