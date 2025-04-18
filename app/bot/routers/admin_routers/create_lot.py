@@ -195,7 +195,7 @@ async def process_auction(message: Message, data: dict):
                     lot.is_active = False
                     await LotDAO.update(session,filters=LotFilterModel(id = lot.id),values=LotFilterModel.model_validate(lot.to_dict()))
             await message.edit_reply_markup(reply_markup=None)
-            await message.edit_caption(message.text + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
+            await message.edit_caption(caption=message.caption + '\n **АУКЦИОН ЗАВЕРШЕН, ВСЕМ СПАСИБО ЗА УЧАСТИЕ**',parse_mode='markdown')
             break
 
         data.update({'time_in_minutes':remaining_time})
