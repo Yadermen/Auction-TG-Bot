@@ -39,6 +39,10 @@ async def process_lot_num(message:Message, state:FSMContext, user_info:User):
                 await message.answer('Лот с таким номером не найден',reply_markup=MainKeyboard.build_main_kb(user_info.role))
                 await state.clear()
                 return
+            if not lot.is_active:
+                await message.answer('Лот уже не активен',reply_markup=MainKeyboard.build_main_kb(user_info.role))
+                await state.clear()
+                return
             if lot.curren_rate is not None:
                 min_rate = lot.curren_rate + lot.rate_step
             else:

@@ -42,6 +42,7 @@ class LotCreateModel(BaseModel):
     diagnostik_link: str
     curren_rate: Optional[float] = None
     current_rate_user_id: Optional[int] = None
+    is_active:bool
 
     class Config:
         from_attributes = True
@@ -58,6 +59,7 @@ class LotFilterModel(BaseModel):
     diagnostik_link: Optional[str] = None
     curren_rate: Optional[float] = None
     current_rate_user_id: Optional[int] = None
-
+    is_active:Optional[bool] = None
+    
     class Config:
         from_attributes = True
