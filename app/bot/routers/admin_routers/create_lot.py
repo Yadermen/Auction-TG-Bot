@@ -174,7 +174,8 @@ async def process_auction(message: Message, data: dict):
         if remaining_time == 5:
             auk_message = await bot.send_message(chat_id=settings.USER_GROUP_ID,text='**ВНИМАНИЕ ДО КОНЦА АУКЦИОНА ОСТАЛОСЬ 5 МИНУТ**',parse_mode='markdown')
         if remaining_time <= 0:
-            await bot.delete_message(chat_id=settings.USER_GROUP_ID,message_id=auk_message.message_id)
+            if 'auk_message' in locals() and auk_message is not None:
+                await bot.delete_message(chat_id=settings.USER_GROUP_ID,message_id=auk_message.message_id)
             if lot.current_rate_user_id:
                 async with async_session_maker() as session:
                     user_who_won = await UserDAO.find_one_or_none(session,filters=TelegramIDModel(telegram_id=lot.current_rate_user_id))
