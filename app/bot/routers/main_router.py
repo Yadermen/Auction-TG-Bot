@@ -172,16 +172,16 @@ async def handle_fio(message:Message, state:FSMContext):
         await message.answer("Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте снова позже.")
 
 
-@main_router.message(Command("chatid"), F.chat.type.in_({"group", "supergroup"}))
-async def get_chat_id(message: Message):
-    """Returns current chat ID when called from a group"""
-    chat_info = await message.bot.get_chat(message.chat.id)
-    text = (
-        f"📢 Информация о чате:\n\n"
-        f"👥 Название: {chat_info.title}\n"
-        f"🆔 ID: {chat_info.id}"
-    )
+# @main_router.message(Command("chatid"), F.chat.type.in_({"group", "supergroup"}))
+# async def get_chat_id(message: Message):
+#     """Returns current chat ID when called from a group"""
+#     chat_info = await message.bot.get_chat(message.chat.id)
+#     text = (
+#         f"📢 Информация о чате:\n\n"
+#         f"👥 Название: {chat_info.title}\n"
+#         f"🆔 ID: {chat_info.id}"
+#     )
     
-    await message.answer(
-        text=text,
-    )
+#     await message.answer(
+#         text=text,
+#     )
