@@ -34,7 +34,10 @@ async def set_commands():
 
 
 async def start_bot():
-    await set_commands()
+    try:
+        await set_commands()
+    except:
+        pass
     for admin_id in admins:
         try:
             await bot.send_message(admin_id, f"Я запущен🥳.")

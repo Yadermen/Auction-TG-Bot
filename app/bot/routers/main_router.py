@@ -1,4 +1,4 @@
-﻿from aiogram.filters import CommandObject, CommandStart, StateFilter
+﻿from aiogram.filters import CommandObject, CommandStart, StateFilter,Command
 from aiogram.types import Message
 from aiogram.dispatcher.router import Router
 from aiogram.fsm.state import StatesGroup, State
@@ -170,3 +170,18 @@ async def handle_fio(message:Message, state:FSMContext):
     except Exception as e:
         logger.error(f"Ошибка при добавлении пользователя {message.from_user.id}: {e}")
         await message.answer("Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте снова позже.")
+
+
+@main_router.message(Command("chatid"), F.chat.type.in_({"group", "supergroup"}))
+async def get_chat_id(message: Message):
+    """Returns current chat ID when called from a group"""
+    chat_info = await message.bot.get_chat(message.chat.id)
+    text = (
+        f"📢 Информация о чате:\n\n"
+        f"👥 Название: {chat_info.title}\n"
+        f"🆔 ID: {chat_info.id}"
+    )
+    
+    await message.answer(
+        text=text,
+    )
