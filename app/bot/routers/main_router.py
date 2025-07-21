@@ -47,7 +47,7 @@ async def cmd_start(message: Message,state:FSMContext):
             )
 
             if user_info:
-                if user_info.telegram_id in admins:
+                if user_id in admins:
                     values = UserModel(
                         telegram_id=user_id,
                         username=message.from_user.username,

@@ -111,7 +111,7 @@ async def get_banned_user_list(message: Message):
         msg = "Пользователи:\n"
         for user in users:
             username = f"@{user.username}" if user.username else "Без имени"
-            msg += f"👤 {username} (ID: {user.telegram_id} Status:{user.verification_code.value})\n"
+            msg += f"👤 {username} (ID: {user.telegram_id} Status:{user.verification_status.value})\n"
         answer = split_message(msg=msg, with_photo=False)
         for i in answer:
             await message.answer(i)
