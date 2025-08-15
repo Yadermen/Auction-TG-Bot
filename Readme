@@ -1,0 +1,12 @@
+﻿Развертка: 
+sudo nano .env
+pip install -r requirements.txt
+python -m app.bot.init
+
+Миграции:
+alembic revision --autogenerate -m "name" - генерация
+alembic upgrade head - применение 
+
+Логика работы с бд: app/db 
+Логика работы с апдейтами: app/bot/routers
+

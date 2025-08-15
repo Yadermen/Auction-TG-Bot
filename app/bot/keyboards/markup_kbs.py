@@ -32,20 +32,12 @@ class MainKeyboard:
     
     @staticmethod
     def get_user_kb_texts(key = None) -> Dict[str, str] | None:
-        """
-        'do_rate'
-        """
         if key is not None:
             return MainKeyboard.__user_kb_texts_dict_ru.get(key)
         return MainKeyboard.__user_kb_texts_dict_ru
 
     @staticmethod
     def get_admin_kb_texts(key = None) -> Dict[str, str]:
-        """
-        'create_lot'
-        'banned_list'
-        'user_list'
-        """
         if key is not None:
             return MainKeyboard.__admin_kb_text_dict_ru.get(key)
         return MainKeyboard.__admin_kb_text_dict_ru
