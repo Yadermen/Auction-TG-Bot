@@ -254,154 +254,195 @@ async def process_confirm_callback(query: CallbackQuery, callback_data: LotConfi
             await state.clear()
 
 
+import asyncio
+from datetime import datetime
+
+auction_update_events = {}
+
+
 async def process_auction(message: Message, data: dict, photo_message_id: int):
     remaining_time = data.get('time_in_minutes')
     last_bid_time = None
     five_minutes_warning_sent = False
     lot_id = data.get('lot_id')
 
+    update_event = asyncio.Event()
+    auction_update_events[lot_id] = update_event
+
     logger.info(f"Запуск аукциона для лота {lot_id}, время: {remaining_time} минут")
 
-    while True:
-        try:
-            logger.debug(f"Лот {lot_id}: Осталось времени {remaining_time} минут")
+    try:
+        while True:
+            try:
+                logger.debug(f"Лот {lot_id}: Осталось времени {remaining_time} минут")
 
-            async with async_session_maker() as session:
-                lot = await LotDAO.find_one_or_none_by_id(data.get('lot_id'), session)
-                if not lot:
-                    logger.error(f"Лот {data.get('lot_id')} не найден в БД - завершаем аукцион")
-                    break
+                async with async_session_maker() as session:
+                    lot = await LotDAO.find_one_or_none_by_id(data.get('lot_id'), session)
+                    if not lot:
+                        logger.error(f"Лот {data.get('lot_id')} не найден в БД - завершаем аукцион")
+                        break
 
-                data.update({'current_rate': lot.curren_rate})
-                logger.debug(f"Лот {lot_id}: Текущая ставка {lot.curren_rate}")
+                    data.update({'current_rate': lot.curren_rate})
+                    logger.debug(f"Лот {lot_id}: Текущая ставка {lot.curren_rate}")
 
-            if lot.curren_rate and lot.curren_rate != data.get('last_known_rate'):
-                data.update({'last_known_rate': lot.curren_rate})
-                last_bid_time = datetime.now()
-                logger.info(f"Лот {lot_id}: Новая ставка {lot.curren_rate}, время ставки: {last_bid_time}")
+                bid_updated = False
+                if lot.curren_rate and lot.curren_rate != data.get('last_known_rate'):
+                    data.update({'last_known_rate': lot.curren_rate})
+                    last_bid_time = datetime.now()
+                    bid_updated = True
+                    logger.info(f"Лот {lot_id}: Новая ставка {lot.curren_rate}, время ставки: {last_bid_time}")
 
-                if remaining_time < 30:
-                    old_time = remaining_time
-                    remaining_time = 30
-                    logger.info(f"Лот {lot_id}: Автопродление с {old_time} до {remaining_time} минут")
+                    if remaining_time < 30:
+                        old_time = remaining_time
+                        remaining_time = 30
+                        logger.info(f"Лот {lot_id}: Автопродление с {old_time} до {remaining_time} минут")
+                        try:
+                            await bot.send_message(
+                                chat_id=settings.USER_GROUP_ID,
+                                text=f"⏰ **ВНИМАНИЕ!** Аукцион по лоту №{lot_id} автоматически продлен на 30 минут из-за новой ставки!",
+                                parse_mode='markdown'
+                            )
+                        except Exception as e:
+                            logger.error(f"Ошибка при отправке уведомления о продлении: {e}")
+
+                remaining_time = remaining_time - 1
+                logger.debug(f"Лот {lot_id}: После уменьшения осталось {remaining_time} минут")
+
+                if remaining_time == 5 and not five_minutes_warning_sent:
+                    logger.info(f"Лот {lot_id}: Отправляем предупреждение за 5 минут")
                     try:
                         await bot.send_message(
                             chat_id=settings.USER_GROUP_ID,
-                            text=f"⏰ **ВНИМАНИЕ!** Аукцион по лоту №{lot_id} автоматически продлен на 30 минут из-за новой ставки!",
+                            text=f'⚠️ **ВНИМАНИЕ! До окончания аукциона по лоту №{lot_id} осталось 5 минут!**',
                             parse_mode='markdown'
                         )
+                        five_minutes_warning_sent = True
                     except Exception as e:
-                        logger.error(f"Ошибка при отправке уведомления о продлении: {e}")
+                        logger.error(f"Ошибка при отправке предупреждения: {e}")
 
-            remaining_time = remaining_time - 1
-            logger.debug(f"Лот {lot_id}: После уменьшения осталось {remaining_time} минут")
+                if remaining_time <= 0:
+                    logger.info(f"Лот {lot_id}: Время истекло, завершаем аукцион")
+                    try:
+                        if lot.current_rate_user_id:
+                            logger.info(f"Лот {lot_id}: Есть победитель {lot.current_rate_user_id}")
+                            async with async_session_maker() as session:
+                                user_who_won = await UserDAO.find_one_or_none(
+                                    session,
+                                    filters=TelegramIDModel(telegram_id=lot.current_rate_user_id)
+                                )
 
-            if remaining_time == 5 and not five_minutes_warning_sent:
-                logger.info(f"Лот {lot_id}: Отправляем предупреждение за 5 минут")
-                try:
-                    await bot.send_message(
-                        chat_id=settings.USER_GROUP_ID,
-                        text=f'⚠️ **ВНИМАНИЕ! До окончания аукциона по лоту №{lot_id} осталось 5 минут!**',
-                        parse_mode='markdown'
-                    )
-                    five_minutes_warning_sent = True
-                except Exception as e:
-                    logger.error(f"Ошибка при отправке предупреждения: {e}")
+                                if user_who_won:
+                                    user_link = f"@{user_who_won.username}" if user_who_won.username else f"<a href='https://t.me/{user_who_won.telegram_id}'>пользователь</a>"
 
-            if remaining_time <= 0:
-                logger.info(f"Лот {lot_id}: Время истекло, завершаем аукцион")
-                try:
-                    if lot.current_rate_user_id:
-                        logger.info(f"Лот {lot_id}: Есть победитель {lot.current_rate_user_id}")
-                        async with async_session_maker() as session:
-                            user_who_won = await UserDAO.find_one_or_none(
-                                session,
-                                filters=TelegramIDModel(telegram_id=lot.current_rate_user_id)
+                                    await bot.send_message(
+                                        chat_id=settings.ADMIN_GROUP_ID,
+                                        text=(
+                                            f"🏆 **АУКЦИОН №{lot.id} ЗАВЕРШЕН**\n\n"
+                                            f"👤 Победитель: {user_who_won.user_enter_fio}\n"
+                                            f"🚗 Лот: №{lot.id}\n"
+                                            f"💰 Финальная ставка: {lot.curren_rate} ₽\n"
+                                            f"📞 Телефон: {user_who_won.phone_number}\n"
+                                            f"📱 Telegram: {user_link}"
+                                        ),
+                                        parse_mode='html'
+                                    )
+
+                                    await bot.send_message(
+                                        chat_id=settings.USER_GROUP_ID,
+                                        text=(
+                                            f"🏁 **АУКЦИОН №{lot.id} ЗАВЕРШЕН!**\n\n"
+                                            f"🎉 Всем спасибо за участие!\n"
+                                            f"💰 Ставка победителя: **{lot.curren_rate} ₽**"
+                                        ),
+                                        parse_mode='markdown'
+                                    )
+                                else:
+                                    logger.warning(f"Лот {lot_id}: Пользователь-победитель не найден в БД")
+                        else:
+                            logger.info(f"Лот {lot_id}: Аукцион завершен без ставок")
+                            await bot.send_message(
+                                chat_id=settings.USER_GROUP_ID,
+                                text=(
+                                    f"🏁 **АУКЦИОН №{lot.id} ЗАВЕРШЕН!**\n\n"
+                                    f"😔 К сожалению, ставок не было.\n"
+                                    f"🙏 Всем спасибо за внимание!"
+                                ),
+                                parse_mode='markdown'
                             )
 
-                            if user_who_won:
-                                user_link = f"@{user_who_won.username}" if user_who_won.username else f"<a href='https://t.me/{user_who_won.telegram_id}'>пользователь</a>"
+                        async with async_session_maker() as session:
+                            await LotDAO.update(
+                                session,
+                                filters=LotFilterModel(id=lot.id),
+                                values={'is_active': False}
+                            )
+                        logger.info(f"Лот {lot_id}: Лот деактивирован в БД")
 
-                                await bot.send_message(
-                                    chat_id=settings.ADMIN_GROUP_ID,
-                                    text=(
-                                        f"🏆 **АУКЦИОН №{lot.id} ЗАВЕРШЕН**\n\n"
-                                        f"👤 Победитель: {user_who_won.user_enter_fio}\n"
-                                        f"🚗 Лот: №{lot.id}\n"
-                                        f"💰 Финальная ставка: {lot.curren_rate} ₽\n"
-                                        f"📞 Телефон: {user_who_won.phone_number}\n"
-                                        f"📱 Telegram: {user_link}"
-                                    ),
-                                    parse_mode='html'
-                                )
+                        try:
+                            await message.edit_reply_markup(reply_markup=completed_auction_kb(data))
+                            await message.edit_text(
+                                text=message.text + '\n\n🏁 **АУКЦИОН ЗАВЕРШЕН**',
+                                parse_mode='markdown',
+                                reply_markup=completed_auction_kb(data)
+                            )
+                            logger.info(f"Лот {lot_id}: Сообщение обновлено")
+                        except Exception as e:
+                            logger.error(f"Ошибка при обновлении сообщения завершенного аукциона: {e}")
 
-                                await bot.send_message(
-                                    chat_id=settings.USER_GROUP_ID,
-                                    text=(
-                                        f"🏁 **АУКЦИОН №{lot.id} ЗАВЕРШЕН!**\n\n"
-                                        f"🎉 Всем спасибо за участие!\n"
-                                        f"💰 Ставка победителя: **{lot.curren_rate} ₽**"
-                                    ),
-                                    parse_mode='markdown'
-                                )
-                            else:
-                                logger.warning(f"Лот {lot_id}: Пользователь-победитель не найден в БД")
-                    else:
-                        logger.info(f"Лот {lot_id}: Аукцион завершен без ставок")
-                        await bot.send_message(
-                            chat_id=settings.USER_GROUP_ID,
-                            text=(
-                                f"🏁 **АУКЦИОН №{lot.id} ЗАВЕРШЕН!**\n\n"
-                                f"😔 К сожалению, ставок не было.\n"
-                                f"🙏 Всем спасибо за внимание!"
-                            ),
-                            parse_mode='markdown'
-                        )
-
-                    async with async_session_maker() as session:
-                        await LotDAO.update(
-                            session,
-                            filters=LotFilterModel(id=lot.id),
-                            values={'is_active': False}
-                        )
-                    logger.info(f"Лот {lot_id}: Лот деактивирован в БД")
-
-                    try:
-                        await message.edit_reply_markup(reply_markup=completed_auction_kb(data))
-                        await message.edit_text(
-                            text=message.text + '\n\n🏁 **АУКЦИОН ЗАВЕРШЕН**',
-                            parse_mode='markdown',
-                            reply_markup=completed_auction_kb(data)
-                        )
-                        logger.info(f"Лот {lot_id}: Сообщение обновлено")
                     except Exception as e:
-                        logger.error(f"Ошибка при обновлении сообщения завершенного аукциона: {e}")
+                        logger.error(f"Ошибка при завершении аукциона {lot_id}: {e}")
 
+                    logger.info(f"Лот {lot_id}: Аукцион завершен, выходим из цикла")
+                    break
+
+                data.update({'time_in_minutes': remaining_time})
+                if lot.curren_rate is not None:
+                    min_rate = lot.curren_rate + lot.rate_step
+                else:
+                    min_rate = lot.price
+                data.update({'min_rate': min_rate})
+
+                try:
+                    await message.edit_reply_markup(reply_markup=lot_kb(data))
+                    logger.debug(f"Лот {lot_id}: Клавиатура обновлена")
                 except Exception as e:
-                    logger.error(f"Ошибка при завершении аукциона {lot_id}: {e}")
+                    logger.error(f"Ошибка при обновлении клавиатуры лота {lot_id}: {e}")
 
-                logger.info(f"Лот {lot_id}: Аукцион завершен, выходим из цикла")
-                break
+                try:
+                    await asyncio.wait_for(update_event.wait(), timeout=60.0)
+                    update_event.clear()
+                    logger.info(f"Лот {lot_id}: Получен сигнал немедленного обновления")
+                    remaining_time += 1
+                except asyncio.TimeoutError:
+                    pass
 
-            data.update({'time_in_minutes': remaining_time})
-            if lot.curren_rate is not None:
-                min_rate = lot.curren_rate + lot.rate_step
-            else:
-                min_rate = lot.price
-            data.update({'min_rate': min_rate})
-
-            try:
-                await message.edit_reply_markup(reply_markup=lot_kb(data))
-                logger.debug(f"Лот {lot_id}: Клавиатура обновлена")
             except Exception as e:
-                logger.error(f"Ошибка при обновлении клавиатуры лота {lot_id}: {e}")
+                logger.error(f"Критическая ошибка в цикле аукциона {lot_id}: {e}")
+                remaining_time -= 1
+                if remaining_time <= 0:
+                    logger.error(f"Лот {lot_id}: Принудительное завершение из-за ошибок")
+                    break
+                await asyncio.sleep(60)
 
-            await asyncio.sleep(60)
+    finally:
+        auction_update_events.pop(lot_id, None)
 
-        except Exception as e:
-            logger.error(f"Критическая ошибка в цикле аукциона {lot_id}: {e}")
-            remaining_time -= 1
-            if remaining_time <= 0:
-                logger.error(f"Лот {lot_id}: Принудительное завершение из-за ошибок")
-                break
-            await asyncio.sleep(60)
+
+def trigger_auction_update(lot_id: int):
+    if lot_id in auction_update_events:
+        auction_update_events[lot_id].set()
+        logger.info(f"Лот {lot_id}: Запущено немедленное обновление")
+
+
+async def handle_bid(callback_query, lot_id: int, bid_amount: float):
+    try:
+        async with async_session_maker() as session:
+            pass
+
+        trigger_auction_update(lot_id)
+
+        await callback_query.answer("Ставка принята!")
+
+    except Exception as e:
+        logger.error(f"Ошибка при обработке ставки: {e}")
+        await callback_query.answer("Произошла ошибка при обработке ставки")

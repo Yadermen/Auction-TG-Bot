@@ -80,10 +80,6 @@ def lot_kb(data: dict) -> InlineKeyboardMarkup:
     if is_valid_url(autoteka_link):
         kb.button(text='🔍 Автотека', url=autoteka_link)
 
-    diagnostik_link = data.get('diagnostik_link')
-    if is_valid_url(diagnostik_link):
-        kb.button(text='🔧 Диагностика', url=diagnostik_link)
-
     time_left = minutes_to_hours_and_minutes(data.get('time_in_minutes', 0))
     kb.button(
         text=f'⏰ До конца: {time_left}',
@@ -110,7 +106,16 @@ def lot_kb(data: dict) -> InlineKeyboardMarkup:
             url=f'https://t.me/{bot_username}?start=bid_{data.get("lot_id", "")}'
         )
 
-    kb.adjust(3, 1, 1, 1)
+    photos_count = 1 if is_valid_url(photos_link) else 0
+    autoteka_count = 1 if is_valid_url(autoteka_link) else 0
+
+    if photos_count + autoteka_count == 2:
+        kb.adjust(2, 1, 1, 1)
+    elif photos_count + autoteka_count == 1:
+        kb.adjust(1, 1, 1, 1)
+    else:
+        kb.adjust(1, 1, 1)
+
     return kb.as_markup()
 
 

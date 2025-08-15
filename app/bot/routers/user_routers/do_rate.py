@@ -11,6 +11,7 @@ from aiogram.fsm.context import FSMContext
 
 from app.bot.filters.get_user_info import GetUserInfoFilter
 from app.bot.keyboards.markup_kbs import MainKeyboard,del_kbd
+from app.bot.routers.admin_routers.create_lot import trigger_auction_update
 from app.db.dao import LotDAO
 from app.db.schemas import LotFilterModel
 from app.db.database import async_session_maker
@@ -95,6 +96,7 @@ async def process_rate(message: Message, state: FSMContext, user_info: User):
 
         msg = f'Пользователь {user_info.user_enter_fio} (phone_num: {user_info.phone_number}; tg_id:`{user_info.telegram_id}`)\nсделал ставку в размере {message.text} на лот под номером: {lot_id}'
         await bot.send_message(settings.ADMIN_GROUP_ID, msg, parse_mode='markdown')
+        trigger_auction_update(lot_id)
 
         if previous_leader_id and previous_leader_id != user_info.telegram_id:
             try:
