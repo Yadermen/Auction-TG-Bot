@@ -130,9 +130,6 @@ def completed_auction_kb(data: dict) -> InlineKeyboardMarkup:
     if is_valid_url(autoteka_link):
         kb.button(text='🔍 Автотека', url=autoteka_link)
 
-    diagnostik_link = data.get('diagnostik_link')
-    if is_valid_url(diagnostik_link):
-        kb.button(text='🔧 Диагностика', url=diagnostik_link)
 
     kb.adjust(3)
     return kb.as_markup()

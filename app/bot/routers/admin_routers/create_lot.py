@@ -1,5 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
+from collections import defaultdict
+from typing import Dict, List
 
 from aiogram.filters import Command, StateFilter
 from aiogram.filters.callback_data import CallbackData
@@ -22,6 +24,9 @@ from app.db.schemas import LotCreateModel, LotFilterModel, TelegramIDModel
 
 create_lot_router = Router()
 
+media_groups: Dict[str, List[Message]] = defaultdict(list)
+media_group_timers: Dict[str, asyncio.Task] = {}
+
 
 class CreateLot(StatesGroup):
     lot_info = State()
@@ -33,6 +38,38 @@ class CreateLot(StatesGroup):
     autoteka_link = State()
     diagnostik_link = State()
     confirm = State()
+
+
+async def process_media_group(media_group_id: str, state: FSMContext):
+    await asyncio.sleep(1)
+
+    messages = media_groups.get(media_group_id, [])
+    if not messages:
+        return
+
+    photo_ids = []
+    for msg in messages:
+        if msg.photo:
+            photo_ids.append(msg.photo[-1].file_id)
+
+    if photo_ids:
+        await state.update_data(
+            main_photo=photo_ids[0],
+            additional_photos=photo_ids[1:] if len(photo_ids) > 1 else []
+        )
+
+        first_message = messages[0]
+        if len(photo_ids) == 1:
+            await first_message.answer(
+                "✅ Главное фото загружено!\nОтправьте ссылки на дополнительные фото (или напишите 'нет' если их нет):")
+        else:
+            await first_message.answer(
+                f"✅ Загружено {len(photo_ids)} фотографий!\nПервое фото будет главным, остальные - дополнительными.\nОтправьте ссылки на дополнительные фото (или напишите 'нет' если их нет):")
+
+        await state.set_state(CreateLot.photos_link)
+
+    media_groups.pop(media_group_id, None)
+    media_group_timers.pop(media_group_id, None)
 
 
 @create_lot_router.message(F.text == MainKeyboard.get_admin_kb_texts().get('create_lot'))
@@ -87,7 +124,7 @@ async def set_time(message: Message, state: FSMContext):
             await message.answer("❌ Время не может превышать 1440 минут (24 часа). Попробуйте снова.")
             return
         await state.update_data(time_in_minutes=time_in_minutes)
-        await message.answer("Отправьте главную фотографию в чат:")
+        await message.answer("Отправьте главную фотографию (или несколько фотографий) в чат:")
         await state.set_state(CreateLot.main_photo)
     except ValueError:
         await message.answer("❌ Время должно быть целым числом. Попробуйте снова.")
@@ -95,9 +132,24 @@ async def set_time(message: Message, state: FSMContext):
 
 @create_lot_router.message(F.photo, StateFilter(CreateLot.main_photo))
 async def set_main_photo(message: Message, state: FSMContext):
-    await state.update_data(main_photo=message.photo[-1].file_id)
-    await message.answer("Отправьте ссылки на дополнительные фото (или напишите 'нет' если их нет):")
-    await state.set_state(CreateLot.photos_link)
+    if message.media_group_id:
+        media_group_id = message.media_group_id
+        media_groups[media_group_id].append(message)
+
+        if media_group_id in media_group_timers:
+            media_group_timers[media_group_id].cancel()
+
+        media_group_timers[media_group_id] = asyncio.create_task(
+            process_media_group(media_group_id, state)
+        )
+    else:
+        await state.update_data(
+            main_photo=message.photo[-1].file_id,
+            additional_photos=[]
+        )
+        await message.answer(
+            "✅ Главное фото загружено!\nОтправьте ссылки на дополнительные фото (или напишите 'нет' если их нет):")
+        await state.set_state(CreateLot.photos_link)
 
 
 @create_lot_router.message(F.text, StateFilter(CreateLot.photos_link))
@@ -115,26 +167,21 @@ async def set_autoteka_link(message: Message, state: FSMContext):
     autoteka_link = message.text.strip()
     if autoteka_link.lower() in ['нет', 'отсутствует', '-', 'no']:
         autoteka_link = ''
-    await state.update_data(autoteka_link=autoteka_link)
-    await message.answer("Отправьте ссылку на диагностический отчет (или напишите 'нет' если нет):")
-    await state.set_state(CreateLot.diagnostik_link)
-
-
-@create_lot_router.message(F.text, StateFilter(CreateLot.diagnostik_link))
-async def set_diagnostik_link(message: Message, state: FSMContext):
-    diagnostik_link = message.text.strip()
-    if diagnostik_link.lower() in ['нет', 'отсутствует', '-', 'no']:
-        diagnostik_link = ""
-    await state.update_data(diagnostik_link=diagnostik_link)
+    await state.update_data(autoteka_link=autoteka_link, diagnostik_link="")
 
     data = await state.get_data()
     msg = await generate_lot_confirmation_text(data)
+
     await message.answer_photo(
         photo=data.get('main_photo'),
         caption=msg,
         reply_markup=lot_confirm(),
         parse_mode='html'
     )
+
+    additional_photos = data.get('additional_photos', [])
+    if additional_photos:
+        await message.answer(f"📷 Дополнительно будет загружено {len(additional_photos)} фотографий")
 
 
 @create_lot_router.callback_query(LotConfirmCallback.filter())
@@ -156,12 +203,16 @@ async def process_confirm_callback(query: CallbackQuery, callback_data: LotConfi
                     return
 
                 async with async_session_maker() as session:
+                    additional_photos = data.get('additional_photos', [])
+                    additional_photos_str = ','.join(additional_photos) if additional_photos else ''
+
                     lot_data = LotCreateModel(
                         lot_info=data.get('lot_info'),
                         price=data.get('price'),
                         rate_step=data.get('rate_step'),
                         time_in_minutes=data.get('time_in_minutes'),
                         main_photo=data.get('main_photo'),
+                        additional_photos=additional_photos_str,
                         photos_link=data.get('photos_link'),
                         autoteka_link=data.get('autoteka_link'),
                         diagnostik_link=data.get('diagnostik_link'),
@@ -191,12 +242,36 @@ async def process_confirm_callback(query: CallbackQuery, callback_data: LotConfi
                 })
 
                 try:
-                    photo_message = await bot.send_photo(
-                        chat_id=settings.USER_GROUP_ID,
-                        photo=data.get('main_photo'),
-                        caption=f'🚗 **Лот №{lot_id}**',
-                        parse_mode='markdown'
-                    )
+                    main_photo = data.get('main_photo')
+                    additional_photos = data.get('additional_photos', [])
+                    all_photos = [main_photo] + additional_photos
+
+                    if len(all_photos) == 1:
+                        photo_message = await bot.send_photo(
+                            chat_id=settings.USER_GROUP_ID,
+                            photo=main_photo,
+                            caption=f'🚗 **Лот №{lot_id}**',
+                            parse_mode='markdown'
+                        )
+                    else:
+                        from aiogram.types import InputMediaPhoto
+                        media_group = []
+
+                        media_group.append(InputMediaPhoto(
+                            media=all_photos[0],
+                            caption=f'🚗 **Лот №{lot_id}**',
+                            parse_mode='markdown'
+                        ))
+
+                        for photo_id in all_photos[1:9]:
+                            media_group.append(InputMediaPhoto(media=photo_id))
+
+                        media_messages = await bot.send_media_group(
+                            chat_id=settings.USER_GROUP_ID,
+                            media=media_group
+                        )
+                        photo_message = media_messages[0]
+
                 except Exception as e:
                     logger.error(f"Ошибка при отправке фото: {e}")
                     if "message is too long" in str(e):
