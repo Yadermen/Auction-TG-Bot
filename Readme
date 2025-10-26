@@ -1,12 +1,69 @@
-﻿Развертка: 
+# 🚗 Car Auction Telegram Bot
+
+A **Telegram bot** built with Python and FastAPI for managing online car auctions.  
+It provides functionality for creating, managing, and participating in auctions directly through Telegram.
+
+---
+
+## 📦 Features
+- User registration and authentication  
+- Create and manage car auctions  
+- Place and track bids in real time  
+- Admin panel for managing users and auctions  
+- PostgreSQL database with Alembic migrations  
+
+---
+
+## ⚙️ Deployment
+
+### 1. Environment setup
+```bash
 sudo nano .env
 pip install -r requirements.txt
 python -m app.bot.init
+2. Database migrations
+Generate a new migration:
 
-Миграции:
-alembic revision --autogenerate -m "name" - генерация
-alembic upgrade head - применение 
+bash
+alembic revision --autogenerate -m "name"
+Apply migrations:
 
-Логика работы с бд: app/db 
-Логика работы с апдейтами: app/bot/routers
+bash
+alembic upgrade head
+🗂 Project Structure
+app/db → database logic (models, CRUD, migrations)
 
+app/bot/routers → update handlers and bot logic
+
+app/bot/init → bot initialization
+
+🛠 Tech Stack
+Python 3.10+
+
+FastAPI
+
+Aiogram (Telegram bot framework)
+
+PostgreSQL
+
+Alembic (migrations)
+
+Docker (optional for deployment)
+
+🚀 Usage
+Configure .env with your database and Telegram bot token.
+
+Run migrations to prepare the database.
+
+Start the bot:
+
+bash
+python -m app.bot.init
+📖 Notes
+This project is designed as a modular microservice‑style bot with clear separation of concerns:
+
+Database logic in app/db
+
+Update routing in app/bot/routers
+
+Extensible structure for adding new auction features
