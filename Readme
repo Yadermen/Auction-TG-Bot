@@ -1,15 +1,16 @@
 # 🚗 Car Auction Telegram Bot
 
-A **Telegram bot** built with Python and FastAPI for managing online car auctions.  
-It provides functionality for creating, managing, and participating in auctions directly through Telegram.
+A Telegram bot built with **Aiogram** for managing online car auctions.  
+Users can register, browse available cars, place bids, and track auction status — all directly within Telegram.
 
 ---
 
 ## 📦 Features
+
 - User registration and authentication  
 - Create and manage car auctions  
-- Place and track bids in real time  
-- Admin panel for managing users and auctions  
+- Real-time bidding via inline buttons  
+- Admin panel for managing users and listings  
 - PostgreSQL database with Alembic migrations  
 
 ---
@@ -17,53 +18,43 @@ It provides functionality for creating, managing, and participating in auctions 
 ## ⚙️ Deployment
 
 ### 1. Environment setup
-```bash
+
 sudo nano .env
 pip install -r requirements.txt
 python -m app.bot.init
 2. Database migrations
 Generate a new migration:
 
-bash
+
 alembic revision --autogenerate -m "name"
 Apply migrations:
 
-bash
+
 alembic upgrade head
 🗂 Project Structure
 app/db → database logic (models, CRUD, migrations)
 
-app/bot/routers → update handlers and bot logic
+app/bot/routers → Telegram update handlers and bot logic
 
-app/bot/init → bot initialization
+app/bot/init → bot startup and dispatcher setup
 
 🛠 Tech Stack
 Python 3.10+
-
-FastAPI
 
 Aiogram (Telegram bot framework)
 
 PostgreSQL
 
-Alembic (migrations)
+Alembic (for migrations)
 
 Docker (optional for deployment)
 
 🚀 Usage
-Configure .env with your database and Telegram bot token.
+Configure .env with your database URL and Telegram bot token
 
-Run migrations to prepare the database.
+Run migrations to prepare the database
 
 Start the bot:
 
 bash
-python -m app.bot.init
-📖 Notes
-This project is designed as a modular microservice‑style bot with clear separation of concerns:
-
-Database logic in app/db
-
-Update routing in app/bot/routers
-
-Extensible structure for adding new auction features
+python -m 
